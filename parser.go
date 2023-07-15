@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"fmt"
 	"github.com/PuerkitoBio/goquery"
+	"github.com/pkg/browser"
 	"net/http"
 	"os"
 	"strings"
@@ -46,10 +48,45 @@ func main() {
 	})
 	fmt.Println(childrenText)
 
-	file, _ := os.Create("oc_transpo_routes.csv")
+	err = os.MkdirAll("results", 0700)
+	if err != nil {
+		fmt.Errorf("%v\n", err)
+		os.Exit(1)
+	}
+
+	file, _ := os.Create("results/oc_transpo_routes.csv")
 	writer := csv.NewWriter(file)
 	err = writer.WriteAll(childrenText)
 	if err != nil {
 		fmt.Errorf("%v", err)
 	}
+
+	html := bytes.NewBuffer(nil)
+	fmt.Fprint(html, `<!DOCTYPE html>
+		<html>
+		<head>
+			<style>
+				th, tr, td {
+					border: 1px solid black;
+				}
+				td, th {
+					padding: 10px;
+				}
+			</style>
+		</head>
+		<body>
+		<table><tr><th>route number</th><th>route name</th></tr>`)
+
+	for _, item := range childrenText {
+		fmt.Fprintf(html, "<tr><td>%s</td><td>%s</td></tr>", item[0], item[1])
+	}
+	fmt.Fprint(html, "</table></body></html>")
+	reader := bytes.NewReader(html.Bytes())
+	browser.OpenReader(reader)
+
+	file.Close()
+	file, _ = os.Create("results/oc_transpo_routes.html")
+	defer file.Close()
+
+	file.Write(html.Bytes())
 }
